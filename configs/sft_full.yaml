@@ -1,0 +1,55 @@
+# Model
+model_name_or_path: tiiuae/Falcon-H1-0.5B-Base
+torch_dtype: bfloat16
+
+# Dataset
+dataset_name: recogna-nlp/UltrachatBR
+dataset_num_proc: 16
+dataloader_drop_last: true
+dataloader_num_workers: 16
+dataloader_pin_memory: true
+
+
+# Hyperparameters
+max_length: 2048
+activation_offloading: false  # passar ativações intermediares da gpu para cpu
+packing: true  # aproveita mais GPU ao conectar diferentes sequencias até preencher max-length
+packing_strategy: bfd  # usar wrapped quando a ordem dos exemplos importar
+padding_free: true  # permite manter o packing, sem gastar processamento com o padding. flash_attn >=2
+gradient_checkpointing: true  # mais tempo de execução, em troca de menos VRAM utilizada pelas ativações. No forward, não armazena boa parte das ativações, e as obtem via reexecução do forward sob demanda no momento do backward.
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 8
+per_device_eval_batch_size: 4
+eval_accumulation_steps: none
+assistant_only_loss: true
+
+num_train_epochs: 1.0
+lr_scheduler_type: cosine_with_min_lr
+lr_scheduler_kwargs:
+  min_lr_rate: 0.125
+learning_rate: 1.28e-4
+warmup_ratio: 0.02
+adam_beta1: 0.9
+adam_beta2: 0.95
+weight_decay: 0.0
+
+save_strategy: steps  # pode ser epoch,  e então save_steps é ignorado
+save_steps: 100
+save_total_limit: 3
+load_best_model_at_end: true
+
+evaluation_strategy: steps  # pode ser epoch, e então eval_steps é ignorado
+eval_steps: 100
+metric_for_best_model: eval_loss
+greater_is_better: false
+# resume_from_checkpoint=True
+
+push_to_hub: true
+hub_model_id: gustavoluiz/falcon-h1-05b-it-ptbr 
+hub_private_repo: false
+hub_strategy: end
+
+logging_steps: 1
+output_dir: falcon-h1-PT-BR-0.5b-it
+report_to: wandb
+seed: 42
