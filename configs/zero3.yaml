@@ -7,7 +7,7 @@ deepspeed_config:
     pin_memory: true  # fixa parte da ram para acesso direto da gpu, ao invés de ter que copiar ram -> buffer -> vram
   offload_param_device: none  # na mesma ideiam, pode passar armazenamento dos parâmetros para CPU
   zero_stage: 2  # stage 1 - shard optimizator; stage 2 - shard gradients+opt; stage 3 - shard grad+opt+params
-distributed_type: DEEPSPEED
+distributed_type: no
 downcast_bf16: 'no'  # em máquinas sem suporte a bf16, pode “rebaixar” bf16 para fp16 automaticamente. "NO" porque 4090 suporta
 enable_cpu_affinity: true  # permite fixar processos em núcleos específicos da CPU, minimizando trocas entre núcleos.
 machine_rank: 0  # índice do nó do cluster
