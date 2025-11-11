@@ -4,6 +4,7 @@ from trl import ModelConfig, ScriptArguments, SFTConfig, SFTTrainer, TrlParser
 from dataclasses import dataclass
 import ast
 import json
+import re
 
 
 @dataclass
@@ -11,18 +12,31 @@ class DataSubsetArgs:
     dataset_sample_size: int | None = None
     dataset_eval_fraction: float | None = None
 
-def _to_messages(ex):
-    raw = ex["conversa"]
-    try:
-        turns = json.loads(raw)
-    except Exception:
-        turns = ast.literal_eval(raw)
-    msgs = []
-    for t in turns:
-        if "humano" in t:
-            msgs.append({"role": "user", "content": t["humano"]})
-        if "assistente" in t:
-            msgs.append({"role": "assistant", "content": t["assistente"]})
+
+_KEY_RE = re.compile(
+    r"'?\s*(humano|Humano|human|Human|assistente|Assistente|assistant|Assistant)\s*'?\s*:\s*",
+    re.S,
+)
+
+def _strip_quotes(s: str) -> str:
+    s = s.strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+        return s[1:-1]
+    return s
+
+def _to_messages(ex: dict) -> dict:
+    s = ex["conversa"]
+    msgs: list[dict[str, str]] = []
+    hits = list(_KEY_RE.finditer(s))
+    if not hits:
+        return {"messages": [{"role": "assistant", "content": s}]}
+    for i, m in enumerate(hits):
+        role_raw = m.group(1).lower()
+        role = "user" if role_raw in {"humano", "human"} else "assistant"
+        start = m.end()
+        end = hits[i + 1].start() if i + 1 < len(hits) else len(s)
+        chunk = s[start:end].strip().rstrip(",}] ")
+        msgs.append({"role": role, "content": _strip_quotes(chunk)})
     return {"messages": msgs}
 
 def main(script_args, training_args, model_args, subset_args):
@@ -41,8 +55,10 @@ def main(script_args, training_args, model_args, subset_args):
         tokenizer.chat_template = (
             "{% if bos_token %}{{ bos_token }}{% endif %}"
             "{% for m in messages %}"
-            "{{ '[user]\\n' if m['role']=='user' else '[assistant]\\n' }}"
-            "{{ m['content'] + '\\n' }}"
+            "{% if m['role'] == 'user' %}[user]\n{{ m['content'] }}\n"
+            "{% elif m['role'] == 'assistant' %}[assistant]\n{% generation %}{{ m['content'] }}{% endgeneration %}\n"
+            "{% elif m['role'] == 'system' %}[system]\n{{ m['content'] }}\n"
+            "{% endif %}"
             "{% endfor %}"
             "{% if add_generation_prompt %}[assistant]\n{% endif %}"
         )
